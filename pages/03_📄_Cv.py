@@ -12,6 +12,12 @@ from streamlit.components.v1 import html
 import base64
 from PIL import Image
 import io
+# Importa weasyprint per la conversione HTML-PDF
+#from weasyprint import HTML, CSS
+# Per gestire i file temporanei
+import tempfile
+import uuid
+import pdfkit
 
 # Carica le variabili d'ambiente
 load_dotenv()
@@ -73,6 +79,25 @@ def optimize_image(base64_img, max_size=(150, 150), quality=85):
         return None
 
 def generate_cv(cv_data, template_style):
+
+    # Aggiungi il CSS per migliorare lo stile del CV
+    css = """
+    <style>
+        @font-face {
+            font-family: 'NotoEmoji';
+            src: url('https://fonts.gstatic.com/s/notosansemoji/v1/bGD5TKKYgE4hWJ37FQuCFXa5LxXKgPrOCmCF.woff2') format('woff2');
+        }
+
+        body {
+            font-family: 'Arial', 'NotoEmoji', sans-serif;
+        }
+
+        .emoji {
+            font-family: 'NotoEmoji', 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;
+        }
+    </style>
+    """
+
     """Genera CV basato sui dati forniti e sullo stile del template."""
     model = get_llm()
     
@@ -220,8 +245,15 @@ def generate_cv(cv_data, template_style):
     chain = prompt | model | parser
     
     # Genera CV
+    result = "" # Inizializza result prima del try
     try:
         result = chain.invoke({"cv_data": json.dumps(reduced_cv_data)})
+        html_content = f"""
+        {css}
+        <div>
+            {result}
+        </div>
+        """
         
         # Sostituisci il placeholder con l'HTML dell'immagine
         if has_profile_picture and profile_image_html:
@@ -246,6 +278,80 @@ def generate_cv(cv_data, template_style):
         return result
     except Exception as e:
         return f"<p>Errore durante la generazione del CV: {str(e)}</p>"
+
+import pdfkit
+import os
+import tempfile
+import uuid
+import re
+
+def html_to_pdf(html_content):
+    """Converte HTML in PDF utilizzando pdfkit con supporto per emoji."""
+    try:
+        # Converti direttamente le emoji in immagini usando un approccio più semplice
+        # Pattern per identificare le emoji (espressione regolare approssimativa)
+        emoji_pattern = re.compile(r'[\U0001F300-\U0001F6FF\U0001F900-\U0001F9FF\u2600-\u26FF\u2700-\u27BF]')
+        
+        # Funzione per sostituire le emoji con immagini
+        def replace_emoji_with_image(match):
+            emoji = match.group(0)
+            emoji_code = hex(ord(emoji))[2:].lower()
+            # Usa immagini emoji da un CDN
+            return f'<img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/72x72/{emoji_code}.png" ' + \
+                   f'style="height: 1em; width: auto; vertical-align: middle; display: inline-block;" alt="{emoji}" />'
+        
+        # Sostituisci le emoji con immagini
+        html_content = emoji_pattern.sub(replace_emoji_with_image, html_content)
+        
+        # Aggiungi metatag UTF-8 se non presente
+        if '<meta charset=' not in html_content and '<head>' in html_content:
+            html_content = html_content.replace('<head>', '<head><meta charset="UTF-8">')
+        elif '<head>' not in html_content:
+            html_content = f'<html><head><meta charset="UTF-8"></head><body>{html_content}</body></html>'
+        
+        # Crea file temporanei
+        temp_html = f"{tempfile.gettempdir()}/{uuid.uuid4()}.html"
+        temp_pdf = f"{tempfile.gettempdir()}/{uuid.uuid4()}.pdf"
+        
+        # Scrivi il contenuto HTML nel file
+        with open(temp_html, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        
+        # Percorso a wkhtmltopdf
+        path_wkhtmltopdf = r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'
+        config = pdfkit.configuration(wkhtmltopdf=path_wkhtmltopdf)
+        
+        # Opzioni per pdfkit
+        options = {
+            'enable-local-file-access': None,
+            'encoding': "UTF-8",
+            'quiet': '',
+            'page-size': 'A4',
+            'dpi': '300',
+            'margin-top': '0.75in',
+            'margin-right': '0.75in',
+            'margin-bottom': '0.75in',
+            'margin-left': '0.75in',
+            'image-quality': 100,
+            'image-dpi': 300
+        }
+        
+        # Converte in PDF
+        pdfkit.from_file(temp_html, temp_pdf, configuration=config, options=options)
+        
+        # Leggi il contenuto del PDF
+        with open(temp_pdf, 'rb') as file:
+            pdf_content = file.read()
+        
+        # Rimuovi i file temporanei
+        os.unlink(temp_html)
+        os.unlink(temp_pdf)
+        
+        return pdf_content
+    except Exception as e:
+        st.error(f"Errore nella generazione del PDF: {e}")
+        st.info("Assicurati che wkhtmltopdf sia installato e che il percorso sia corretto.")
+        return None
 
 # Interfaccia Streamlit
 def main():
@@ -276,13 +382,36 @@ def main():
             # Usa st.components.v1.html per renderizzare l'HTML
             html(generated_cv, height=800, scrolling=True)  # Altezza regolabile in base alle necessità
             
-            # Pulsante di download
-            st.download_button(
-                label="Scarica CV come HTML",
-                data=generated_cv,
-                file_name=f"cv_{template_style.lower()}.html",
-                mime="text/html"
-            )
+            # Container per pulsanti di download
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Pulsante di download HTML
+                st.download_button(
+                    label="Scarica CV come HTML",
+                    data=generated_cv,
+                    file_name=f"cv_{template_style.lower()}.html",
+                    mime="text/html"
+                )
+            
+            with col2:
+    # Pulsante di download PDF
+                try:
+        # Try PDF conversion
+                    with st.spinner("Conversione in PDF in corso..."):
+                        pdf_content = html_to_pdf(generated_cv)
+        
+                    if pdf_content:
+                        st.download_button(
+                        label="Scarica CV come PDF",
+                        data=pdf_content,
+                        file_name=f"cv_{template_style.lower()}.pdf",
+                        mime="application/pdf"
+                        )
+                    else:
+                        st.warning("Impossibile generare PDF. Usa l'opzione HTML per ora.")
+                except Exception as e:
+                    st.warning(f"Funzionalità PDF non disponibile: {e}")
     else:
         st.error("Errore: Dati della scheda studente non trovati nella sessione. Assicurati di aver completato il form della scheda studente.")
 

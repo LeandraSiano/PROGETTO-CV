@@ -62,20 +62,22 @@ if 'users' not in st.session_state:
     st.session_state.users = {"admin": "password123", "studente1": "abc123"}
 
 # Stati dell'applicazione
-if 'page' not in st.session_state:
-    st.session_state.page = "landing"  # landing, login, register, dashboard
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-if 'username' not in st.session_state:
-    st.session_state.username = ""
-if 'profile_picture' not in st.session_state:
-    st.session_state.profile_picture = None
-if 'form_complete' not in st.session_state:
-    st.session_state.form_complete = False
-if 'file_uploaded' not in st.session_state:
-    st.session_state.file_uploaded = False
-if 'file_data' not in st.session_state:
-    st.session_state.file_data = None
+def initialize_session_state():
+    """Inizializza le variabili di stato della sessione se non esistono"""
+    if 'logged_in' not in st.session_state:
+        st.session_state.logged_in = False
+    if 'username' not in st.session_state:
+        st.session_state.username = ""
+    if 'form_data' not in st.session_state:
+        st.session_state.form_data = {}
+    if 'form_complete' not in st.session_state:
+        st.session_state.form_complete = False
+    if 'file_uploaded' not in st.session_state:
+        st.session_state.file_uploaded = False
+    if 'profile_picture' not in st.session_state:
+        st.session_state.profile_picture = None
+    if 'page' not in st.session_state:
+        st.session_state.page = "landing"
 
 # Funzioni di navigazione
 def go_to_login():
@@ -127,13 +129,13 @@ def register_user(username, email, first_name, last_name, password):
 
     # Aggiungi il nuovo utente all'elenco
     config['users'].append(new_user)
-    print( "Config", config)
+    #print( "Config", config)
     # Salva il file YAML con i dati aggiornati
     with open('config.yml', 'w') as file:
         yaml.dump(config, file)
 
 # Esegui la registrazione chiamando la funzione
-register_user('new_user', 'new_user@example.com', 'John', 'Doe', 'securepassword')
+#register_user('new_user', 'new_user@example.com', 'John', 'Doe', 'securepassword')
 
 def load_credentials():
     try:
@@ -276,6 +278,7 @@ def load_form_data(username):
 
 # Interfaccia principale
 def main():
+    initialize_session_state()
     # Sidebar per la navigazione (visibile solo se loggati)
     if st.session_state.logged_in:
         with st.sidebar:
@@ -309,6 +312,8 @@ def main():
                     st.markdown("❌")
             
             st.markdown("---")
+            #st.button("Genera CV", on_click=lambda: st.session_state.page = "cv")
+            #st.button("Contatti", on_click=lambda: st.session_state.page = "contatti")
             st.button("Logout", on_click=logout)
     
     # Pagina di destinazione
@@ -546,8 +551,8 @@ def main():
                     
                     # Visualizza le principali sezioni della scheda
                     st.markdown("#### 📋 Dati Personali")
-                    st.write(f"*Nome*: {scheda_studente['Dati Personali']['Nome']} {scheda_studente['Dati Personali']['Cognome']}")
-                    st.write(f"*Età*: {scheda_studente['Dati Personali']['Età']}")
+                    st.write(f"Nome: {scheda_studente['Dati Personali']['Nome']} {scheda_studente['Dati Personali']['Cognome']}")
+                    st.write(f"Età: {scheda_studente['Dati Personali']['Età']}")
 
                     if "Immagine Profilo" in scheda_studente:
                         img_str = scheda_studente["Immagine Profilo"]
@@ -555,26 +560,26 @@ def main():
                         st.image(image, width=200)
 
                     st.markdown("#### 📱 Contatti")
-                    st.write(f"*Email*: {scheda_studente['Contatti']['Email']}")
-                    st.write(f"*Telefono*: {scheda_studente['Contatti']['Numero di telefono']}")
-                    st.write(f"*Residenza*: {scheda_studente['Contatti']['Residenza']}")
+                    st.write(f"Email: {scheda_studente['Contatti']['Email']}")
+                    st.write(f"Telefono: {scheda_studente['Contatti']['Numero di telefono']}")
+                    st.write(f"Residenza: {scheda_studente['Contatti']['Residenza']}")
                     
                     st.markdown("#### 🗣️ Competenze")
-                    st.write(f"*Certificazioni*: {scheda_studente['Competenze']['Certificazioni']}")
-                    st.write(f"*Strumenti Software*: {scheda_studente['Competenze']['Strumenti Software']}")
-                    st.write(f"*Certificazioni Lingue*: {scheda_studente['Competenze']['Certificazioni Lingue']}")
-                    st.write(f"*Soft Skills*: {scheda_studente['Competenze']['Soft Skills']}")
+                    st.write(f"Certificazioni: {scheda_studente['Competenze']['Certificazioni']}")
+                    st.write(f"Strumenti Software: {scheda_studente['Competenze']['Strumenti Software']}")
+                    st.write(f"Certificazioni Lingue: {scheda_studente['Competenze']['Certificazioni Lingue']}")
+                    st.write(f"Soft Skills: {scheda_studente['Competenze']['Soft Skills']}")
 
                     st.markdown("#### 💼 Esperienze Lavorative")
-                    st.write(f"*Esperienza Lavorativa*: {scheda_studente['Esperienze Lavorative']['Esperienza Lavorativa']}")
+                    st.write(f"Esperienza Lavorativa: {scheda_studente['Esperienze Lavorative']['Esperienza Lavorativa']}")
 
                     st.markdown("#### 🎓 Istruzione e Formazione")
-                    st.write(f"*Istruzione*: {scheda_studente['Istruzione e Formazione']['Istruzione']}")
-                    st.write(f"*Formazione*: {scheda_studente['Istruzione e Formazione']['Formazione']}")
+                    st.write(f"Istruzione: {scheda_studente['Istruzione e Formazione']['Istruzione']}")
+                    st.write(f"Formazione: {scheda_studente['Istruzione e Formazione']['Formazione']}")
 
                     st.markdown("#### 🎯 Obiettivi Professionali")
-                    st.write(f"*Settore Lavorativo*: {scheda_studente['Obiettivi Professionali']['Settore Lavorativo']}")
-                    st.write(f"*Obiettivi a Breve Termine*: {scheda_studente['Obiettivi Professionali']['Obiettivi a Breve Termine']}")
+                    st.write(f"Settore Lavorativo: {scheda_studente['Obiettivi Professionali']['Settore Lavorativo']}")
+                    st.write(f"Obiettivi a Breve Termine: {scheda_studente['Obiettivi Professionali']['Obiettivi a Breve Termine']}")
                     
                     # Salva la scheda dello studente in un file JSON
                     if not os.path.exists('schede_studenti'):
